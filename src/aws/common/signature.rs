@@ -332,6 +332,8 @@ impl<'a> SignedRequest<'a> {
                                      canonical_headers_v2(&self.headers),
                                      canonical_resources_v2(&self.bucket, &self.path, self.endpoint.is_bucket_virtual));
 
+        debug!("{}", string_to_sign);
+
         match self.payload {
             None => {
                 self.update_header("Content-Length", &format!("{}", 0));

@@ -142,8 +142,8 @@ pub struct S3Client<P, D>
     where P: AwsCredentialsProvider,
           D: DispatchSignedRequest,
 {
-    credentials_provider: P,
-    dispatcher: D,
+    pub credentials_provider: P,
+    pub dispatcher: D,
     region: Region,
     endpoint: Endpoint,
 }
@@ -179,6 +179,17 @@ impl<P, D> S3Client<P, D>
             endpoint: endpoint,
             dispatcher: request_dispatcher,
         }
+    }
+
+
+    /// Returns the current Credentials Provider of the S3Client.
+    pub fn credentials_provider(&self) -> &P{
+        &self.credentials_provider
+    }
+
+    /// Returns the current Region of the S3Client.
+    pub fn region(&self) -> Region {
+        self.region
     }
 
     /// Returns the current Endpoint of the S3Client.
@@ -1064,13 +1075,18 @@ impl<P, D> S3Client<P, D>
                                              "/",
                                              &self.endpoint);
 
+        let mut params = Params::new();
         if input.version != None {
-            let mut params = Params::new();
             params.put("list-type", "2");
             // params.put("Action", "ListObjects");
             // ListObjectsRequestWriter::write_params(&mut params, "", input);
-            request.set_params(params);
         }
+
+        if input.prefix != None {
+            params.put("prefix", "date");
+        }
+
+        request.set_params(params);
 
         let hostname = self.hostname(Some(&input.bucket));
         request.set_hostname(Some(hostname));
@@ -1517,6 +1533,7 @@ impl<P, D> S3Client<P, D>
                 Err(S3Error::with_aws("Error deleting object", aws))
             },
         }
+
     }
 
     /// Initiates a multipart upload and returns an upload ID.
@@ -1890,11 +1907,11 @@ impl<P, D> S3Client<P, D>
         }
 
         let mut request = SignedRequest::new("PUT",
-                                             "s3",
-                                             self.region,
-                                             &input.bucket,
-                                             &path,
-                                             &self.endpoint);
+                     "s3",
+                     self.region,
+                     &input.bucket,
+                     &path,
+                     &self.endpoint);
 
         if let Some(ref class) = input.storage_class {
             request.add_header("x-amz-storage-class", class);
@@ -2133,9 +2150,8 @@ impl<P, D> S3Client<P, D>
         }
     }
 
-
     // Internal hostname method - Checks for buckets names with '.' in it.
-    fn hostname(&self, bucket: Option<&BucketName>) -> String {
+    pub fn hostname(&self, bucket: Option<&BucketName>) -> String {
         match bucket {
             Some(b) => {
                 // NOTE: If the bucket name contains '.' then it must follow path vs virtual bucket
@@ -2191,7 +2207,7 @@ fn extract_s3_temporary_endpoint_from_xml<T: Peek + Next>(stack: &mut T) -> Resu
     Err(S3Error::new("Couldn't find redirect location for S3 bucket"))
 }
 
-fn sign_and_execute<D>(dispatcher: &D,
+pub fn sign_and_execute<D>(dispatcher: &D,
                        signed_request: &mut SignedRequest,
                        creds: AwsCredentials)
     -> HttpResponse
@@ -2216,7 +2232,7 @@ fn sign_and_execute<D>(dispatcher: &D,
 }
 
 // Internal method that calls the hyper dispatcher to send the URL request.
-fn new_sign_and_execute<D>(dispatcher: &D,
+pub fn new_sign_and_execute<D>(dispatcher: &D,
                        signed_request: &mut SignedRequest,
                        operation: Option<&mut Operation>,
                        creds: AwsCredentials)
